@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2f4ef">
+  <title>Fieldwell | Worker monitoring</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f2f4ef;
+      --surface: #ffffff;
+      --ink: #17241f;
+      --muted: #748078;
+      --line: #e2e8e1;
+      --green: #2f7253;
+      --green-soft: #e6f1e9;
+      --lime: #d7ed79;
+      --coral: #c25145;
+      --coral-soft: #fae9e5;
+      --blue: #477d9a;
+      --blue-soft: #e8f0f4;
+      --shadow: 0 12px 30px rgba(27, 47, 37, .055);
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--paper); color: var(--ink); }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    .app-shell { display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 100vh; }
+    .sidebar { display: flex; flex-direction: column; padding: 26px 16px 18px; background: #1c3028; color: #eef4ed; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+    .brand-mark { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 9px; background: var(--lime); color: #1c3028; font-size: 15px; font-weight: 800; }
+    .brand-name { font-size: 14px; font-weight: 750; letter-spacing: .02em; }
+    .brand-caption { margin-top: 2px; color: #a7b9ae; font-size: 10px; letter-spacing: .11em; text-transform: uppercase; }
+    .side-label { margin: 35px 9px 10px; color: #91a69a; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+    .nav-link { display: flex; align-items: center; gap: 10px; min-height: 39px; padding: 0 10px; border-radius: 6px; color: #d8e2db; font-size: 13px; text-decoration: none; }
+    .nav-link:hover, .nav-link.active { background: #2c4439; color: #fff; }
+    .nav-glyph { display: grid; width: 19px; place-items: center; color: #bad1c1; font-size: 15px; }
+    .sidebar-spacer { flex: 1; }
+    .side-note { padding: 13px 12px; border: 1px solid #3c5448; border-radius: 7px; color: #c9d6ce; font-size: 11px; line-height: 1.55; }
+    .side-note strong { display: block; margin-bottom: 5px; color: var(--lime); font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
+    .side-footer { padding: 14px 9px 0; color: #91a69a; font-size: 10px; }
+    main { min-width: 0; padding: 24px clamp(18px, 3.3vw, 48px) 38px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1400px; margin: 0 auto 29px; }
+    .crumb { color: var(--muted); font-size: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .stream-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 11px; border: 1px solid #d5e0d6; border-radius: 99px; background: #fff; color: #53675b; font-size: 11px; font-weight: 700; letter-spacing: .03em; }
+    .stream-dot { width: 7px; height: 7px; border-radius: 50%; background: #db9a3e; box-shadow: 0 0 0 3px #f7eedc; }
+    .stream-pill.paused .stream-dot { background: #87948b; box-shadow: 0 0 0 3px #e8ece8; }
+    .button { display: inline-flex; min-height: 37px; align-items: center; justify-content: center; gap: 8px; padding: 0 13px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); cursor: pointer; font-size: 12px; font-weight: 650; transition: background .16s ease, transform .16s ease; }
+    .button:hover { background: #f7faf6; transform: translateY(-1px); }
+    .button.primary { border-color: var(--green); background: var(--green); color: #fff; }
+    .button.primary:hover { background: #245c41; }
+    .button.small { min-height: 30px; padding: 0 9px; font-size: 11px; }
+    .button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid #9dbb65; outline-offset: 2px; }
+    .content { max-width: 1400px; margin: auto; }
+    .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 23px; animation: rise .35s ease both; }
+    .eyebrow { margin: 0 0 7px; color: var(--green); font-size: 10px; font-weight: 750; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); font-weight: 690; letter-spacing: 0; line-height: 1.12; }
+    .subtitle { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+    .heading-stats { display: flex; gap: 22px; padding-bottom: 3px; }
+    .heading-stat { text-align: right; }
+    .heading-stat strong { display: block; font-size: 19px; font-weight: 700; }
+    .heading-stat span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .worker-strip { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 15px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); animation: rise .4s ease both; }
+    .worker-identity { display: flex; min-width: 0; align-items: center; gap: 12px; }
+    .avatar { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border-radius: 7px; background: #e5eee7; color: #2e694d; font-size: 13px; font-weight: 750; }
+    .worker-name { overflow: hidden; margin: 0; font-size: 15px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .worker-meta { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .worker-meta span { margin: 0 5px; color: #bbc5bd; }
+    .worker-state { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--green); font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .worker-state::before { width: 6px; height: 6px; border-radius: 50%; background: currentColor; content: ""; }
+    .worker-state.alert { color: var(--coral); }
+    .strip-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+    .updated-label { color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .overview-grid { display: grid; grid-template-columns: minmax(0, 1fr) 294px; align-items: start; gap: 15px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+    .metric-card, .panel { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
+    .metric-card { min-width: 0; padding: 17px 18px 14px; animation: rise .45s ease both; }
+    .metric-card:nth-child(2) { animation-delay: .07s; }
+    .metric-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .metric-title { display: flex; align-items: center; gap: 8px; color: #53635a; font-size: 11px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
+    .metric-icon { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 6px; background: var(--coral-soft); color: var(--coral); font-size: 13px; }
+    .metric-icon.oxygen { background: var(--blue-soft); color: var(--blue); }
+    .range-label { color: #89948d; font-size: 10px; }
+    .metric-reading { display: flex; align-items: baseline; gap: 7px; margin-top: 16px; }
+    .metric-reading strong { font-size: 36px; font-weight: 680; letter-spacing: 0; line-height: 1; }
+    .metric-reading span { color: #758179; font-size: 12px; }
+    .metric-status { min-height: 19px; margin-top: 6px; color: var(--green); font-size: 10px; font-weight: 650; }
+    .metric-status.alert { color: var(--coral); }
+    .chart-wrap { height: 112px; margin: 6px -4px 0; }
+    .chart-wrap svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .chart-grid { stroke: #edf0ec; stroke-width: 1; }
+    .chart-line { fill: none; stroke: var(--coral); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.4; }
+    .chart-area { fill: rgba(194, 81, 69, .08); }
+    .chart-line.oxygen-line { stroke: var(--blue); }
+    .chart-area.oxygen-area { fill: rgba(71, 125, 154, .09); }
+    .chart-point { fill: #fff; stroke: var(--coral); stroke-width: 2; }
+    .chart-point.oxygen-point { stroke: var(--blue); }
+    .chart-foot { display: flex; justify-content: space-between; color: #929c95; font-size: 9px; }
+    .panel { margin-top: 15px; padding: 16px; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 13px; }
+    .panel-heading h2 { margin: 0; font-size: 13px; font-weight: 700; }
+    .panel-heading span { color: var(--muted); font-size: 10px; }
+    .reading-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 18px; min-height: 39px; border-top: 1px solid #edf0ec; font-size: 11px; }
+    .reading-row:first-of-type { border-top: 0; }
+    .reading-time { color: var(--muted); }
+    .reading-value { min-width: 55px; text-align: right; font-weight: 650; }
+    .reading-value.heart { color: var(--coral); }
+    .reading-value.oxygen { color: var(--blue); }
+    .right-column { min-width: 0; }
+    .roster-panel { margin-top: 0; padding: 16px 13px 12px; }
+    .roster-tools { display: flex; align-items: center; gap: 7px; margin-bottom: 11px; }
+    .search-wrap { position: relative; flex: 1; }
+    .search-wrap span { position: absolute; top: 50%; left: 9px; color: #89958d; font-size: 13px; transform: translateY(-52%); }
+    .search-input { width: 100%; height: 33px; padding: 0 9px 0 29px; border: 1px solid var(--line); border-radius: 5px; background: #fbfcfa; color: var(--ink); font-size: 11px; }
+    .worker-list { display: grid; gap: 4px; }
+    .worker-item { display: flex; width: 100%; align-items: center; gap: 9px; padding: 9px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; text-align: left; cursor: pointer; }
+    .worker-item:hover { background: #f7f9f6; }
+    .worker-item.selected { border-color: #dbe8dc; background: #eff5ef; }
+    .mini-avatar { display: grid; width: 31px; height: 31px; flex: 0 0 auto; place-items: center; border-radius: 6px; background: #e6ece8; color: #456351; font-size: 10px; font-weight: 750; }
+    .worker-item-copy { min-width: 0; flex: 1; }
+    .worker-item-name { overflow: hidden; font-size: 11px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+    .worker-item-id { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .item-reading { color: var(--muted); font-size: 9px; text-align: right; white-space: nowrap; }
+    .item-reading strong { display: block; margin-bottom: 3px; color: var(--ink); font-size: 10px; font-weight: 700; }
+    .empty-search { padding: 14px 6px; color: var(--muted); font-size: 11px; text-align: center; }
+    .crew-footer { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 9px; }
+    .notice { display: flex; gap: 10px; margin-top: 15px; padding: 12px 13px; border: 1px solid #e6ddc9; border-radius: 7px; background: #fbf7ed; color: #655b44; font-size: 10px; line-height: 1.5; }
+    .notice-mark { display: grid; width: 18px; height: 18px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #efe5ce; color: #806b3e; font-size: 11px; font-weight: 800; }
+    .notice strong { color: #4a4435; }
+    dialog { width: min(440px, calc(100vw - 28px)); padding: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 70px rgba(22, 38, 29, .24); }
+    dialog::backdrop { background: rgba(14, 30, 22, .43); backdrop-filter: blur(2px); }
+    .dialog-head { display: flex; align-items: start; justify-content: space-between; padding: 20px 21px 14px; border-bottom: 1px solid var(--line); }
+    .dialog-head h2 { margin: 0; font-size: 17px; }
+    .dialog-head p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .close-button { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 5px; background: #f1f4f0; color: #516157; cursor: pointer; font-size: 17px; }
+    .worker-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; padding: 17px 21px 20px; }
+    .field { display: grid; gap: 6px; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { color: #56645c; font-size: 10px; font-weight: 700; }
+    .field input, .field select { width: 100%; min-height: 37px; padding: 0 10px; border: 1px solid #dce4dc; border-radius: 5px; background: #fff; color: var(--ink); font-size: 12px; }
+    .form-error { display: none; grid-column: 1 / -1; color: var(--coral); font-size: 11px; }
+    .form-error.visible { display: block; }
+    .form-actions { display: flex; grid-column: 1 / -1; justify-content: flex-end; gap: 8px; margin-top: 5px; }
+    .mobile-brand { display: none; }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 1040px) {
+      .app-shell { grid-template-columns: 195px minmax(0, 1fr); }
+      .overview-grid { grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; }
+      .metric-grid { gap: 12px; }
+      .metric-card { padding: 15px 14px 12px; }
+      .heading-stats { gap: 14px; }
+    }
+    @media (max-width: 790px) {
+      .app-shell { display: block; }
+      .sidebar { display: none; }
+      main { padding: 15px 16px 28px; }
+      .mobile-brand { display: flex; align-items: center; gap: 8px; }
+      .mobile-brand .brand-mark { width: 27px; height: 27px; }
+      .topbar { margin-bottom: 22px; }
+      .crumb { display: none; }
+      .overview-grid { grid-template-columns: 1fr; }
+      .right-column { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 12px; }
+      .roster-panel, .notice { margin-top: 0; }
+      .page-heading { align-items: start; }
+    }
+    @media (max-width: 560px) {
+      main { padding-inline: 12px; }
+      .topbar { gap: 8px; }
+      .top-actions { gap: 6px; }
+      .stream-pill { min-height: 30px; padding-inline: 8px; font-size: 9px; }
+      .button { min-height: 34px; padding-inline: 10px; font-size: 11px; }
+      .page-heading { display: block; margin-bottom: 17px; }
+      .heading-stats { justify-content: flex-start; margin-top: 14px; text-align: left; }
+      .heading-stat { text-align: left; }
+      .worker-strip { align-items: flex-start; padding: 12px; }
+      .worker-identity { gap: 9px; }
+      .avatar { width: 36px; height: 36px; }
+      .worker-name { max-width: 40vw; font-size: 13px; }
+      .worker-meta { font-size: 10px; }
+      .strip-actions { flex-direction: column-reverse; align-items: flex-end; gap: 5px; }
+      .updated-label { font-size: 9px; }
+      .metric-grid { grid-template-columns: 1fr; }
+      .metric-card { padding: 15px; }
+      .chart-wrap { height: 100px; }
+      .right-column { grid-template-columns: 1fr; }
+      .notice { grid-row: 2; }
+      .worker-form { grid-template-columns: 1fr; }
+      .field.full, .form-error, .form-actions { grid-column: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">F</div>
+        <div><div class="brand-name">FIELDWELL</div><div class="brand-caption">Workforce health</div></div>
+      </div>
+      <div class="side-label">Workspace</div>
+      <a class="nav-link active" href="#overview"><span class="nav-glyph" aria-hidden="true">◫</span>Overview</a>
+      <a class="nav-link" href="#crew"><span class="nav-glyph" aria-hidden="true">♙</span>Workers</a>
+      <div class="sidebar-spacer"></div>
+      <div class="side-note"><strong>Demo environment</strong>Live-looking values are generated in this browser. No wearable or medical device is connected.</div>
+      <div class="side-footer">FIELDWELL · MONITORING CONSOLE</div>
+    </aside>
+
+    <main id="overview">
+      <div class="topbar">
+        <div class="mobile-brand"><div class="brand-mark" aria-hidden="true">F</div><strong>FIELDWELL</strong></div>
+        <div class="crumb">Operations <span aria-hidden="true">/</span> Worker monitoring</div>
+        <div class="top-actions">
+          <div class="stream-pill" id="streamPill"><span class="stream-dot" aria-hidden="true"></span><span id="streamLabel">SIMULATED STREAM</span></div>
+          <button class="button" id="toggleStream" type="button" aria-pressed="false">Pause stream</button>
+          <button class="button primary" id="addWorker" type="button"><span aria-hidden="true">＋</span> Add worker</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <header class="page-heading">
+          <div><p class="eyebrow">Occupational health / live view</p><h1>Worker monitoring</h1><p class="subtitle">Vitals and crew status at a glance.</p></div>
+          <div class="heading-stats" aria-label="Crew summary">
+            <div class="heading-stat"><strong id="workerCount">0</strong><span>Workers tracked</span></div>
+            <div class="heading-stat"><strong id="alertCount">0</strong><span>Readings to review</span></div>
+          </div>
+        </header>
+
+        <section class="worker-strip" aria-label="Selected worker">
+          <div class="worker-identity">
+            <div class="avatar" id="selectedAvatar" aria-hidden="true">--</div>
+            <div style="min-width:0">
+              <h2 class="worker-name" id="selectedName">Select a worker</h2>
+              <p class="worker-meta"><span id="selectedId">No worker ID</span><span aria-hidden="true">·</span><span id="selectedRole">No role</span><span aria-hidden="true">·</span><span id="selectedZone">No zone</span></p>
+            </div>
+            <span class="worker-state" id="selectedState">Normal</span>
+          </div>
+          <div class="strip-actions"><span class="updated-label">Updated <time id="lastUpdated">--:--:--</time></span><button class="button small" id="editWorker" type="button">Edit details</button></div>
+        </section>
+
+        <div class="overview-grid">
+          <div>
+            <section class="metric-grid" aria-label="Selected worker vital signs">
+              <article class="metric-card">
+                <div class="metric-head"><div class="metric-title"><span class="metric-icon" aria-hidden="true">♥</span>Heart rate</div><span class="range-label">bpm</span></div>
+                <div class="metric-reading"><strong id="heartValue">--</strong><span>bpm</span></div>
+                <div class="metric-status" id="heartStatus">Waiting for readings</div>
+                <div class="chart-wrap"><svg viewBox="0 0 500 120" preserveAspectRatio="none" role="img" aria-label="Simulated heart rate trend over recent readings"><path class="chart-grid" d="M0 25H500 M0 60H500 M0 95H500"/><path class="chart-area" id="heartArea"/><path class="chart-line" id="heartLine"/><circle class="chart-point" id="heartPoint" r="4" cx="0" cy="0"/></svg></div>
+                <div class="chart-foot"><span>30 min ago</span><span>Now</span></div>
+              </article>
+              <article class="metric-card">
+                <div class="metric-head"><div class="metric-title"><span class="metric-icon oxygen" aria-hidden="true">O₂</span>Blood oxygen</div><span class="range-label">SpO₂</span></div>
+                <div class="metric-reading"><strong id="oxygenValue">--</strong><span>%</span></div>
+                <div class="metric-status" id="oxygenStatus">Waiting for readings</div>
+                <div class="chart-wrap"><svg viewBox="0 0 500 120" preserveAspectRatio="none" role="img" aria-label="Simulated blood oxygen trend over recent readings"><path class="chart-grid" d="M0 25H500 M0 60H500 M0 95H500"/><path class="chart-area oxygen-area" id="oxygenArea"/><path class="chart-line oxygen-line" id="oxygenLine"/><circle class="chart-point oxygen-point" id="oxygenPoint" r="4" cx="0" cy="0"/></svg></div>
+                <div class="chart-foot"><span>30 min ago</span><span>Now</span></div>
+              </article>
+            </section>
+
+            <section class="panel" aria-labelledby="recentTitle">
+              <div class="panel-heading"><h2 id="recentTitle">Recent readings</h2><span>Latest samples · demo</span></div>
+              <div id="recentReadings"><div class="reading-row"><span class="reading-time">Waiting for first sample</span><span class="reading-value heart">-- bpm</span><span class="reading-value oxygen">--%</span></div></div>
+            </section>
+          </div>
+
+          <aside class="right-column" id="crew">
+            <section class="panel roster-panel" aria-labelledby="crewTitle">
+              <div class="panel-heading"><h2 id="crewTitle">Crew roster</h2><span id="rosterCount">0 workers</span></div>
+              <div class="roster-tools"><label class="search-wrap"><span aria-hidden="true">⌕</span><input class="search-input" id="workerSearch" type="search" placeholder="Search name or worker ID" aria-label="Search workers by name or ID"></label></div>
+              <div class="worker-list" id="workerList" aria-live="polite"></div>
+              <div class="crew-footer"><span>Local browser records</span><span id="visibleCount">0 shown</span></div>
+            </section>
+            <div class="notice" role="note"><span class="notice-mark" aria-hidden="true">!</span><div><strong>Demo data only.</strong> These generated values are not from a sensor and are not for clinical or safety decisions. Connect and validate compatible devices before operational use.</div></div>
+          </aside>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="workerDialog" aria-labelledby="dialogTitle">
+    <div class="dialog-head"><div><h2 id="dialogTitle">Add worker</h2><p>Enter the worker details to add them to this roster.</p></div><button class="close-button" id="closeDialog" type="button" aria-label="Close dialog">×</button></div>
+    <form class="worker-form" id="workerForm">
+      <div class="field"><label for="workerIdInput">Worker ID *</label><input id="workerIdInput" name="workerId" required maxlength="24" autocomplete="off" placeholder="e.g. W-1048"></div>
+      <div class="field"><label for="workerNameInput">Full name *</label><input id="workerNameInput" name="name" required maxlength="70" autocomplete="name" placeholder="Worker name"></div>
+      <div class="field"><label for="workerRoleInput">Role</label><input id="workerRoleInput" name="role" maxlength="50" placeholder="e.g. Equipment operator"></div>
+      <div class="field"><label for="workerZoneInput">Work zone</label><input id="workerZoneInput" name="zone" maxlength="50" placeholder="e.g. North yard"></div>
+      <div class="form-error" id="formError" role="alert"></div>
+      <div class="form-actions"><button class="button" id="cancelDialog" type="button">Cancel</button><button class="button primary" type="submit">Save worker</button></div>
+    </form>
+  </dialog>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = "fieldwell-workers-v1";
+      const initialWorkers = [
+        { id: "W-1042", name: "Maya Chen", role: "Site supervisor", zone: "North yard" },
+        { id: "W-1087", name: "Jordan Ellis", role: "Equipment operator", zone: "Loading bay" },
+        { id: "W-1120", name: "Samira Patel", role: "Field technician", zone: "East platform" },
+        { id: "W-1156", name: "Luis Romero", role: "Maintenance lead", zone: "Workshop" }
+      ];
+      const colors = { heart: "#c25145", oxygen: "#477d9a" };
+      let workers = loadWorkers();
+      let selectedId = workers[0]?.id || null;
+      let paused = false;
+      let editingId = null;
+      const readings = {};
+      const histories = {};
+      const byId = (id) => document.getElementById(id);
+      const timeNow = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+      function loadWorkers() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+          if (Array.isArray(saved)) return saved.filter((worker) => worker && worker.id && worker.name);
+        } catch (_) {}
+        return initialWorkers.map((worker) => ({ ...worker }));
+      }
+
+      function saveWorkers() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(workers)); } catch (_) {}
+      }
+
+      function seedWorker(worker) {
+        if (readings[worker.id]) return;
+        const heart = 66 + Math.floor(Math.random() * 27);
+        const oxygen = 96 + Math.floor(Math.random() * 4);
+        readings[worker.id] = { heart, oxygen, time: Date.now() };
+        histories[worker.id] = {
+          heart: Array.from({ length: 28 }, (_, index) => Math.max(50, Math.min(140, heart + Math.round((Math.random() - .5) * 17 + Math.sin(index / 3) * 4)))),
+          oxygen: Array.from({ length: 28 }, (_, index) => Math.max(90, Math.min(100, oxygen + Math.round((Math.random() - .5) * 3))))
+        };
+      }
+
+      function statusFor(reading) {
+        if (!reading) return "normal";
+        if (reading.heart < 50 || reading.heart > 120 || reading.oxygen < 94) return "review";
+        return "normal";
+      }
+
+      function initials(name) {
+        return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join("") || "--";
+      }
+
+      function drawChart(kind, values) {
+        const low = kind === "heart" ? 45 : 88;
+        const high = kind === "heart" ? 145 : 101;
+        const coords = values.map((value, index) => {
+          const x = index * (500 / Math.max(1, values.length - 1));
+          const y = 110 - ((value - low) / (high - low)) * 100;
+          return [x, Math.max(5, Math.min(112, y))];
+        });
+        const line = coords.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+        const area = `${line} L500 120 L0 120 Z`;
+        byId(`${kind}Line`).setAttribute("d", line);
+        byId(`${kind}Area`).setAttribute("d", area);
+        const [lastX, lastY] = coords[coords.length - 1] || [0, 0];
+        byId(`${kind}Point`).setAttribute("cx", lastX.toFixed(1));
+        byId(`${kind}Point`).setAttribute("cy", lastY.toFixed(1));
+      }
+
+      function renderRecent(reading, history) {
+        const rows = [];
+        for (let index = 0; index < 5; index += 1) {
+          const ago = (4 - index) * 30;
+          const stamp = index === 4 ? "Just now" : `${ago} sec ago`;
+          const heart = history.heart[history.heart.length - 5 + index] ?? reading.heart;
+          const oxygen = history.oxygen[history.oxygen.length - 5 + index] ?? reading.oxygen;
+          rows.push(`<div class="reading-row"><span class="reading-time">${stamp}</span><span class="reading-value heart">${heart} bpm</span><span class="reading-value oxygen">${oxygen}%</span></div>`);
+        }
+        byId("recentReadings").innerHTML = rows.join("");
+      }
+
+      function renderSelected() {
+        const worker = workers.find((item) => item.id === selectedId);
+        if (!worker) {
+          byId("selectedName").textContent = "No workers yet";
+          byId("selectedId").textContent = "Add a worker to begin";
+          byId("selectedRole").textContent = "";
+          byId("selectedZone").textContent = "";
+          byId("selectedAvatar").textContent = "--";
+          byId("heartValue").textContent = "--";
+          byId("oxygenValue").textContent = "--";
+          byId("heartStatus").textContent = "Waiting for worker";
+          byId("oxygenStatus").textContent = "Waiting for worker";
+          byId("lastUpdated").textContent = "--:--:--";
+          byId("recentReadings").innerHTML = '<div class="reading-row"><span class="reading-time">No worker selected</span><span class="reading-value heart">-- bpm</span><span class="reading-value oxygen">--%</span></div>';
+          drawChart("heart", []);
+          drawChart("oxygen", []);
+          return;
+        }
+        seedWorker(worker);
+        const reading = readings[worker.id];
+        const history = histories[worker.id];
+        const status = statusFor(reading);
+        byId("selectedAvatar").textContent = initials(worker.name);
+        byId("selectedName").textContent = worker.name;
+        byId("selectedId").textContent = worker.id;
+        byId("selectedRole").textContent = worker.role || "Role not set";
+        byId("selectedZone").textContent = worker.zone || "Zone not set";
+        byId("selectedState").textContent = status === "review" ? "Review reading" : "Normal";
+        byId("selectedState").classList.toggle("alert", status === "review");
+        byId("heartValue").textContent = reading.heart;
+        byId("oxygenValue").textContent = reading.oxygen;
+        byId("heartStatus").textContent = reading.heart < 50 || reading.heart > 120 ? "Outside demo review range" : "Within demo review range";
+        byId("oxygenStatus").textContent = reading.oxygen < 94 ? "Below demo review threshold" : "Within demo review range";
+        byId("heartStatus").classList.toggle("alert", reading.heart < 50 || reading.heart > 120);
+        byId("oxygenStatus").classList.toggle("alert", reading.oxygen < 94);
+        byId("lastUpdated").textContent = timeNow();
+        drawChart("heart", history.heart);
+        drawChart("oxygen", history.oxygen);
+        renderRecent(reading, history);
+      }
+
+      function renderRoster() {
+        const query = byId("workerSearch").value.trim().toLowerCase();
+        const visible = workers.filter((worker) => `${worker.name} ${worker.id} ${worker.role} ${worker.zone}`.toLowerCase().includes(query));
+        byId("workerList").innerHTML = visible.length ? visible.map((worker) => {
+          seedWorker(worker);
+          const reading = readings[worker.id];
+          const alert = statusFor(reading) === "review";
+          return `<button class="worker-item ${worker.id === selectedId ? "selected" : ""}" type="button" data-worker-id="${escapeHtml(worker.id)}" aria-pressed="${worker.id === selectedId}"><span class="mini-avatar" aria-hidden="true">${escapeHtml(initials(worker.name))}</span><span class="worker-item-copy"><span class="worker-item-name">${escapeHtml(worker.name)}</span><span class="worker-item-id">${escapeHtml(worker.id)} · ${alert ? "Review" : "Normal"}</span></span><span class="item-reading"><strong>${reading.heart} bpm</strong>${reading.oxygen}% O₂</span></button>`;
+        }).join("") : '<div class="empty-search">No workers match that search.</div>';
+        byId("workerList").querySelectorAll("[data-worker-id]").forEach((button) => {
+          button.addEventListener("click", () => { selectedId = button.dataset.workerId; renderAll(); });
+        });
+        byId("workerCount").textContent = workers.length;
+        byId("rosterCount").textContent = `${workers.length} ${workers.length === 1 ? "worker" : "workers"}`;
+        byId("visibleCount").textContent = `${visible.length} shown`;
+        byId("alertCount").textContent = Object.values(readings).filter((reading) => statusFor(reading) === "review").length;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+      }
+
+      function renderAll() { renderSelected(); renderRoster(); }
+
+      function openForm(worker) {
+        editingId = worker?.id || null;
+        byId("dialogTitle").textContent = editingId ? "Edit worker details" : "Add worker";
+        byId("workerIdInput").value = worker?.id || "";
+        byId("workerIdInput").disabled = Boolean(editingId);
+        byId("workerNameInput").value = worker?.name || "";
+        byId("workerRoleInput").value = worker?.role || "";
+        byId("workerZoneInput").value = worker?.zone || "";
+        byId("formError").classList.remove("visible");
+        byId("workerDialog").showModal();
+        (editingId ? byId("workerNameInput") : byId("workerIdInput")).focus();
+      }
+
+      function closeForm() { byId("workerDialog").close(); }
+      byId("addWorker").addEventListener("click", () => openForm(null));
+      byId("editWorker").addEventListener("click", () => {
+        const worker = workers.find((item) => item.id === selectedId);
+        if (worker) openForm(worker);
+      });
+      byId("closeDialog").addEventListener("click", closeForm);
+      byId("cancelDialog").addEventListener("click", closeForm);
+      byId("workerSearch").addEventListener("input", renderRoster);
+      byId("toggleStream").addEventListener("click", (event) => {
+        paused = !paused;
+        event.currentTarget.textContent = paused ? "Resume stream" : "Pause stream";
+        event.currentTarget.setAttribute("aria-pressed", String(paused));
+        byId("streamPill").classList.toggle("paused", paused);
+        byId("streamLabel").textContent = paused ? "STREAM PAUSED" : "SIMULATED STREAM";
+      });
+      byId("workerForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const id = byId("workerIdInput").value.trim().toUpperCase();
+        const name = byId("workerNameInput").value.trim();
+        const role = byId("workerRoleInput").value.trim();
+        const zone = byId("workerZoneInput").value.trim();
+        const duplicate = workers.some((worker) => worker.id.toLowerCase() === id.toLowerCase() && worker.id !== editingId);
+        if (duplicate) {
+          byId("formError").textContent = "That worker ID is already in the roster. Choose a unique ID.";
+          byId("formError").classList.add("visible");
+          byId("workerIdInput").focus();
+          return;
+        }
+        const worker = { id, name, role, zone };
+        if (editingId) workers = workers.map((item) => item.id === editingId ? worker : item);
+        else workers.push(worker);
+        selectedId = id;
+        seedWorker(worker);
+        saveWorkers();
+        closeForm();
+        renderAll();
+      });
+
+      function tick() {
+        if (paused) return;
+        workers.forEach((worker) => {
+          seedWorker(worker);
+          const reading = readings[worker.id];
+          reading.heart = Math.max(48, Math.min(128, reading.heart + Math.round((Math.random() - .49) * 7)));
+          reading.oxygen = Math.max(90, Math.min(100, reading.oxygen + (Math.random() < .32 ? (Math.random() < .5 ? -1 : 1) : 0)));
+          reading.time = Date.now();
+          histories[worker.id].heart.push(reading.heart);
+          histories[worker.id].oxygen.push(reading.oxygen);
+          histories[worker.id].heart.shift();
+          histories[worker.id].oxygen.shift();
+        });
+        renderAll();
+      }
+
+      renderAll();
+      window.setInterval(tick, 3000);
+    })();
+  </script>
+</body>
+</html>
